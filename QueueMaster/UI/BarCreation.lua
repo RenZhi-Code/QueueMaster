@@ -344,18 +344,35 @@ function QueueMaster:CreateQueueBar(queueID)
     self:UpdateBarFontSizes(bar, barWidth, barHeight)
     
     -- Show the bar with smooth fade-in animation
+    -- CRITICAL FIX: Store target alpha for visibility confirmation
+    local targetAlpha = (self.settings and self.settings.frameAlpha) or 0.95
+    bar.targetAlpha = targetAlpha
+
     bar:SetAlpha(0)
     bar:Show()
-    UIFrameFadeIn(bar, 0.3, 0, (self.settings and self.settings.frameAlpha) or 0.95)
+    UIFrameFadeIn(bar, 0.3, 0, targetAlpha)
     self:Debug("Bar shown with fade-in animation: " .. queueID)
 
-    -- CRITICAL FIX: Force a second show after animation to override any hide logic
-    -- This ensures bars are visible even if timing issues occur
+    -- CRITICAL FIX: Multiple fallback timers to ensure visibility
+    -- Timer 1: Quick check at 0.35s (after animation should complete)
     C_Timer.After(0.35, function()
         if bar and bar.Show then
-            bar:Show()
-            bar:SetAlpha((self.settings and self.settings.frameAlpha) or 0.95)
-            self:Debug("Bar visibility confirmed (post-animation): " .. queueID)
+            if not bar:IsShown() or bar:GetAlpha() < targetAlpha * 0.9 then
+                bar:Show()
+                bar:SetAlpha(targetAlpha)
+                self:Debug("Bar visibility restored (timer 1): " .. queueID)
+            end
+        end
+    end)
+
+    -- Timer 2: Secondary check at 1.0s for delayed issues
+    C_Timer.After(1.0, function()
+        if bar and bar.Show then
+            if not bar:IsShown() or bar:GetAlpha() < targetAlpha * 0.9 then
+                bar:Show()
+                bar:SetAlpha(targetAlpha)
+                self:Debug("Bar visibility restored (timer 2): " .. queueID)
+            end
         end
     end)
     

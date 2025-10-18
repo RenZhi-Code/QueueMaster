@@ -77,38 +77,53 @@ end
 -- Optimized queue bar update with memory management
 function QueueMaster:UpdateAllQueueBars()
     local queueBars = self.queueBars
-    
+
     if not queueBars then
         self:Debug("UpdateAllQueueBars: No queueBars table")
         return
     end
-    
+
     -- OPTIMIZATION: Single iteration for count + update + cleanup
     local currentTime = GetTime()
     local barCount = 0
     local toRemove = {}
-    
+
     for queueID, bar in pairs(queueBars) do
         barCount = barCount + 1
-        
+
         if not bar or not bar.queueID then
             toRemove[#toRemove + 1] = queueID
         else
             -- ALWAYS update timers every call to ensure they show immediately
             self:UpdateQueueBar(queueID, bar)
             bar.lastUpdate = currentTime
-            
-            -- Ensure bar is visible
+
+            -- CRITICAL FIX: Enhanced visibility enforcement
+            -- Check both visibility state AND alpha transparency
+            local targetAlpha = bar.targetAlpha or (self.settings and self.settings.frameAlpha) or 0.95
+
             if not bar:IsShown() then
                 bar:Show()
+                if self.debugMode then
+                    self:Debug("Forced show for hidden bar: " .. queueID)
+                end
+            end
+
+            -- Also check if alpha is too low (effectively invisible)
+            local currentAlpha = bar:GetAlpha()
+            if currentAlpha < targetAlpha * 0.8 then
+                bar:SetAlpha(targetAlpha)
+                if self.debugMode then
+                    self:Debug("Restored alpha for bar " .. queueID .. " from " .. currentAlpha .. " to " .. targetAlpha)
+                end
             end
         end
     end
-    
+
     if self.debugMode then
         self:Debug("UpdateAllQueueBars: Found " .. barCount .. " bars to update")
     end
-    
+
     -- Remove invalid bars
     for i = 1, #toRemove do
         local queueID = toRemove[i]

@@ -28,22 +28,25 @@ function QueueMaster:OnInitialize()
     -- Initialize AceDB for saved variables
     self.db = LibStub("AceDB-3.0"):New("QueueMasterDB", self.defaults, true)
     self.settings = self.db.profile
-    
+
     -- Initialize addon data
     self.queues = {}
     self.queueBars = {}
     self.waitTimes = self.db.char.waitTimes or {}
-    
+
+    -- CRITICAL FIX: Validate saved config on load to prevent invisible bars
+    self:ValidateSavedConfig()
+
     -- Clear any old queue data from saved variables to prevent ghost bars
     if self.db.profile.queues then
         self:Debug("Clearing old queue data from saved variables: " .. tostring(#self.db.profile.queues or 0) .. " queues")
         self.db.profile.queues = {}
     end
-    
+
     -- Clear any existing queue bars to prevent duplicates
     self:Debug("Clearing all existing queue bars during initialization")
     self:ClearAllQueues()
-    
+
     -- Simple welcome message on every login
     self:ScheduleTimer("ShowWelcomeMessage", 3)
 end
@@ -1081,6 +1084,87 @@ function QueueMaster:GetEventSystemStatus()
         hasNativeFrame = self.nativeEventFrame ~= nil,
         dualSystemActive = ace3Events > 0 and nativeEvents > 0
     }
+end
+
+-- CRITICAL FIX: Validate saved configuration on addon load
+-- Prevents invisible bars from corrupted saved variables
+function QueueMaster:ValidateSavedConfig()
+    if not self.db or not self.db.profile or not self.db.char then
+        self:Debug("No saved config to validate")
+        return
+    end
+
+    local correctedIssues = 0
+
+    -- 1. Validate frameAlpha setting (prevent invisible bars)
+    if self.db.profile.frameAlpha then
+        if self.db.profile.frameAlpha < 0.1 or self.db.profile.frameAlpha > 1.0 then
+            local oldValue = self.db.profile.frameAlpha
+            self.db.profile.frameAlpha = 0.95
+            correctedIssues = correctedIssues + 1
+            self:Debug("Corrected invalid frameAlpha: " .. tostring(oldValue) .. " -> 0.95")
+        end
+    end
+
+    -- 2. Validate saved bar positions (ensure they're on-screen)
+    if self.db.char.positions then
+        local screenWidth = UIParent:GetWidth()
+        local screenHeight = UIParent:GetHeight()
+        local positions = self.db.char.positions
+
+        for queueID, pos in pairs(positions) do
+            if pos and pos.x and pos.y then
+                local needsClamping = false
+                local clampedX = pos.x
+                local clampedY = pos.y
+
+                -- Check if position is way off-screen
+                if pos.x < -screenWidth or pos.x > screenWidth then
+                    clampedX = math.max(-screenWidth + 100, math.min(pos.x, screenWidth - 100))
+                    needsClamping = true
+                end
+
+                if pos.y < -screenHeight or pos.y > screenHeight then
+                    clampedY = math.max(-screenHeight + 100, math.min(pos.y, screenHeight - 100))
+                    needsClamping = true
+                end
+
+                if needsClamping then
+                    pos.x = clampedX
+                    pos.y = clampedY
+                    correctedIssues = correctedIssues + 1
+                    self:Debug("Clamped off-screen position for " .. queueID)
+                end
+            end
+        end
+    end
+
+    -- 3. Validate scale setting
+    if self.db.profile.scale then
+        if self.db.profile.scale < 0.5 or self.db.profile.scale > 2.0 then
+            local oldValue = self.db.profile.scale
+            self.db.profile.scale = 1.0
+            correctedIssues = correctedIssues + 1
+            self:Debug("Corrected invalid scale: " .. tostring(oldValue) .. " -> 1.0")
+        end
+    end
+
+    -- 4. Validate edgeOpacity
+    if self.db.profile.edgeOpacity then
+        if self.db.profile.edgeOpacity < 0 or self.db.profile.edgeOpacity > 1.0 then
+            local oldValue = self.db.profile.edgeOpacity
+            self.db.profile.edgeOpacity = 1.0
+            correctedIssues = correctedIssues + 1
+            self:Debug("Corrected invalid edgeOpacity: " .. tostring(oldValue) .. " -> 1.0")
+        end
+    end
+
+    if correctedIssues > 0 then
+        print("|cffff8000[QM]|r Fixed " .. correctedIssues .. " config issue(s) on load")
+        self:Debug("ValidateSavedConfig corrected " .. correctedIssues .. " issues")
+    else
+        self:Debug("ValidateSavedConfig: No issues found")
+    end
 end
 
 -- Version info

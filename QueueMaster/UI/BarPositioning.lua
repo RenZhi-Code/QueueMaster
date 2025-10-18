@@ -53,9 +53,23 @@ function QueueMaster:MakeBarMovable(bar)
                     self:Debug("Loaded saved position for " .. bar.queueID .. ": x=" .. savedPos.x .. ", y=" .. savedPos.y)
                 end
             else
-                -- Clear invalid saved position
-                self.db.char.positions[bar.queueID] = nil
-                print("|cffff8000[QM]|r Cleared invalid saved position for " .. bar.queueID .. " (was off-screen)")
+                -- CRITICAL FIX: Clamp position to screen bounds instead of deleting
+                -- This preserves user positioning across monitor/resolution changes
+                local clampedX = math.max(-screenWidth + 100, math.min(savedPos.x, screenWidth - 100))
+                local clampedY = math.max(-screenHeight + 100, math.min(savedPos.y, screenHeight - 100))
+
+                -- Update saved position with clamped values
+                self.db.char.positions[bar.queueID].x = clampedX
+                self.db.char.positions[bar.queueID].y = clampedY
+
+                useAutoPosition = false
+                bar:ClearAllPoints()
+                bar:SetPoint(savedPos.anchor or "CENTER", UIParent, savedPos.relativeAnchor or "CENTER", clampedX, clampedY)
+
+                print("|cffff8000[QM]|r Adjusted off-screen position for " .. bar.queueID .. " to visible area")
+                if self.debugMode then
+                    self:Debug("Clamped position: " .. savedPos.x .. ", " .. savedPos.y .. " -> " .. clampedX .. ", " .. clampedY)
+                end
             end
         end
     end
