@@ -1,0 +1,63 @@
+## Interface: 110205, 110207
+## Title: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-frFR: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-deDE: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-esES: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-esMX: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-itIT: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-ptBR: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-ruRU: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-koKR: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-zhCN: |cffff0000Queue|r|cff0080ffMaster|r
+## Title-zhTW: |cffff0000Queue|r|cff0080ffMaster|r
+## Notes: Enhanced LFG queue timer with role breakdown, wait estimates, and multi-queue support
+## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
+## Notes-frFR: Minuteur de file d'attente RdG amélioré avec répartition des rôles, estimations d'attente et support multi-files
+## Notes-deDE: Verbesserter LFG-Warteschlangen-Timer mit Rollenaufteilung, Wartezeitschätzungen und Mehrfachwarteschlangen-Unterstützung
+## Notes-esES: Temporizador de cola BdG mejorado con desglose de roles, estimaciones de espera y soporte de múltiples colas
+## Notes-esMX: Temporizador de cola BdG mejorado con desglose de roles, estimaciones de espera y soporte de múltiples colas
+## Notes-itIT: Timer di coda RGS migliorato con ripartizione dei ruoli, stime di attesa e supporto multi-coda
+## Notes-ptBR: Temporizador de fila BG aprimorado com divisão de funções, estimativas de espera e suporte a várias filas
+## Notes-ruRU: Улучшенный таймер очереди ПГ с распределением ролей, оценкой времени ожидания и поддержкой нескольких очередей
+## Notes-koKR: 역할 분석, 대기 시간 추정 및 다중 대기열 지원 기능이 있는 향상된 파티 찾기 대기열 타이머
+## Notes-zhCN: 增强的寻求组队计时器，具有角色分解、等待估计和多队列支持
+## Notes-zhTW: 增強的尋求組隊計時器，具有角色分析、等待估計和多佇列支援
+## Author: RenZhi@EU-Ravencrest
+## Version: 18.10.25.10
+## Category-enUS: Group Finder
+## Category-deDE: Gruppensuche
+## Category-esMX: Buscador de Grupos
+## Category-frFR: Recherche de Groupe
+## Category-itIT: Ricerca Gruppo
+## Category-koKR: 파티 찾기
+## Category-ptBR: Localizador de Grupos
+## Category-ruRU: Поиск Группы
+## Category-zhCN: 组队查找器
+## Category-zhTW: 組隊搜尋器
+## SavedVariables: QueueMasterDB
+## OptionalDeps: Ace3
+
+# OPTIMIZED LOADING ORDER - Performance & Dependency Management
+
+# Ace3 Libraries (essential dependencies)
+embeds.xml
+
+# Core addon initialization (load first)
+QueueMaster.lua
+
+# Localisation system (load early for L table availability)
+Locales/embeds.xml
+
+# Core functionality (dependency order)
+Core/Init.lua
+Core/Alerts.lua
+Core/SlashCommands.lua
+
+# Event system (process events)
+Events/embeds.xml
+
+# UI system (create and manage interface)
+UI/embeds.xml
+
+# Configuration system (load last - depends on everything)
+Config/embeds.xml

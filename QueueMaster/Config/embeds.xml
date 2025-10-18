@@ -1,0 +1,10 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <!-- Config modules in dependency order -->
+    <Script file="ConfigHelpers.lua"/>
+    <Script file="GeneralSettings.lua"/>
+    <Script file="DisplaySettings.lua"/>
+    <Script file="AppearanceSettings.lua"/>
+    <Script file="TooltipsAndCommands.lua"/>
+    <!-- Main coordinator -->
+    <Script file="ConfigCoordinator.lua"/>
+</Ui>

@@ -1,0 +1,19 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\FrameXML\UI.xsd">
+	<!-- Localisation system for QueueMaster -->
+	<!-- Load order: Core localisation first, then language-specific files -->
+	
+	<!-- Core localisation system (includes enUS/enGB default strings) -->
+	<Script file="Locales.lua"/>
+	
+	<!-- Language-specific localisations (only one will load based on client locale) -->
+	<Script file="frFR.lua"/>
+	<Script file="deDE.lua"/>
+	<Script file="esES.lua"/>
+	<Script file="itIT.lua"/>
+	<Script file="ptBR.lua"/>
+	<Script file="ruRU.lua"/>
+	<Script file="koKR.lua"/>
+	<Script file="zhCN.lua"/>
+	<Script file="zhTW.lua"/>
+</Ui>
