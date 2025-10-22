@@ -399,10 +399,10 @@ end)
 -- Create movable anchor frame for queue bars
 function QueueMaster:CreateQueueAnchor()
     if self.queueAnchor then return end
-    
+
     local anchor = CreateFrame("Frame", "QueueMasterAnchor", UIParent, "BackdropTemplate")
-    anchor:SetSize(8, 8)  -- Very small box - just a few pixels as requested
-    
+    anchor:SetSize(8, 8)  -- Small 8x8 pixel box
+
     -- Load saved position or use default (TOPLEFT offset as per memory specs)
     if self.db and self.db.char and self.db.char.anchorPosition then
         local pos = self.db.char.anchorPosition
@@ -411,22 +411,14 @@ function QueueMaster:CreateQueueAnchor()
         -- Default to TOPLEFT with offset (100, -100) as per memory specifications
         anchor:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -100)
     end
-    
-    -- Visual styling - small visible box
+
+    -- Visual styling - solid red filled square (no border)
     anchor:SetBackdrop({
         bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 8, edgeSize = 8,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 }
+        edgeFile = nil,  -- No border
+        tile = false
     })
-    anchor:SetBackdropColor(0.8, 0.1, 0.1, 0.9)  -- Bright red background
-    anchor:SetBackdropBorderColor(1, 0.3, 0.3, 1.0)  -- Red border
-    
-    -- Small text that only shows on mouseover
-    anchor.title = anchor:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    anchor.title:SetPoint("CENTER", anchor, "CENTER", 0, 0)
-    anchor.title:SetText("|cffffffff⚓|r")
-    anchor.title:SetFont("Fonts\\FRIZQT__.TTF", 8, "OUTLINE")
+    anchor:SetBackdropColor(1, 0, 0, 1)  -- Solid bright red fill
     
     -- Make it movable
     anchor:SetMovable(true)

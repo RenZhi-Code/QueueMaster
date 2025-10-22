@@ -167,21 +167,34 @@ function QueueMaster:OnEnable()
     self:CleanupOldSavedQueues()
     
     -- CRITICAL FIX: Force bars to be visible after reload
-    -- Add a delayed call to ensure all systems are initialized first
+    -- Multiple checks to catch all queues quickly after reload
+    -- The WoW API sometimes takes a moment to return all queue data
+    C_Timer.After(0.1, function()
+        self:UpdateQueues(true) -- First check - very early
+    end)
+
     C_Timer.After(0.5, function()
         self:Debug("=== POST-RELOAD BAR VISIBILITY CHECK ===")
         self:Debug("Number of queues: " .. (self.queues and #self.queues or 0))
         self:Debug("Number of bars: " .. (self.queueBars and #self.queueBars or 0))
-        
-        -- Force update queues to detect any active queues
-        self:UpdateQueues()
-        
+
+        -- Second check - catch any queues that weren't ready yet
+        self:UpdateQueues(true)
+
         -- Force bars to be visible if they exist
         if self.ApplySettingsToActiveBarsWithoutMove then
             self:ApplySettingsToActiveBarsWithoutMove()
         end
         
         self:Debug("=== END POST-RELOAD CHECK ===")
+    end)
+
+    -- Third check - final sweep to ensure all queues are caught
+    C_Timer.After(1.5, function()
+        self:UpdateQueues(true)
+        if self.debugMode then
+            self:Debug("Final post-reload queue check complete - queues: " .. self:TableCount(self.queues))
+        end
     end)
 end
 
@@ -377,6 +390,16 @@ function QueueMaster:Debug(message)
         local timestamp = date("%H:%M:%S")
         print("|cff888888[" .. timestamp .. "]|r |cff00ff00[QM Debug]|r " .. tostring(message))
     end
+end
+
+-- Utility: Count items in a table
+function QueueMaster:TableCount(tbl)
+    if not tbl then return 0 end
+    local count = 0
+    for _ in pairs(tbl) do
+        count = count + 1
+    end
+    return count
 end
 
 -- Save queue start time to persistent storage
@@ -748,21 +771,15 @@ function QueueMaster:FixAddonListIcon()
     local function FixAddonIcon()
         -- Try to find addon list entries
         if AddonList and AddonList.ScrollBox then
-            -- Retail API
-            local dataProvider = AddonList.ScrollBox:GetDataProvider()
-            if dataProvider then
-                for _, elementData in pairs(dataProvider:GetCollection()) do
-                    if elementData and elementData.Name == "QueueMaster" then
-                        -- Found our addon entry
-                        local buttons = AddonList.ScrollBox:GetFrames()
-                        for _, button in ipairs(buttons) do
-                            if button.Name and button.Name:GetText() == "QueueMaster" then
-                                -- Fix the icon texture coordinates
-                                if button.Icon then
-                                    button.Icon:SetTexture("Interface\\LFGFrame\\LFG-Eye")
-                                    button.Icon:SetTexCoord(0, 1, 0, 1) -- Show entire texture (single eye)
-                                end
-                            end
+            -- Retail API - iterate through visible frames
+            local buttons = AddonList.ScrollBox:GetFrames()
+            if buttons then
+                for _, button in ipairs(buttons) do
+                    if button.Name and button.Name:GetText() == "QueueMaster" then
+                        -- Fix the icon texture coordinates
+                        if button.Icon then
+                            button.Icon:SetTexture("Interface\\LFGFrame\\LFG-Eye")
+                            button.Icon:SetTexCoord(0, 1, 0, 1) -- Show entire texture (single eye)
                         end
                     end
                 end
@@ -1168,5 +1185,5 @@ function QueueMaster:ValidateSavedConfig()
 end
 
 -- Version info
-QueueMaster.version = "18.10.25.10"
+QueueMaster.version = "22.10.25.10"
 QueueMaster.debugMode = false -- Debug disabled by default to reduce chat spam

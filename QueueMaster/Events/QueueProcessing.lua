@@ -216,8 +216,14 @@ function QueueMaster:ProcessSingleQueue(uniqueQueueID, category, queueInfo, cate
 end
 
 function QueueMaster:OnProposalShow()
-    self:Print("\124cffff8000[QM]\124r LFG Invite Ready! Accept now!")
     local proposalStartTime = GetTime()
+
+    -- ANTI-SPAM: Only show message if enough time has passed since last proposal
+    -- This prevents spam when people keep declining
+    if not self.lastProposalMessageTime or (proposalStartTime - self.lastProposalMessageTime) > 5 then
+        self:Print("\124cffff8000[QM]\124r LFG Invite Ready! Accept now!")
+        self.lastProposalMessageTime = proposalStartTime
+    end
     
     -- CRITICAL FIX: Don't call UpdateQueues during proposal!
     -- This prevents the cleanup logic from removing the proposal queue
@@ -278,7 +284,14 @@ function QueueMaster:OnProposalShow()
 end
 
 function QueueMaster:OnProposalEnd()
-    self:Print("|cff00ff00[QM]|r Clearing proposal state, returning to normal queue display")
+    -- ANTI-SPAM: Only show message if enough time has passed since last end message
+    -- This prevents spam when proposals keep being declined rapidly
+    local currentTime = GetTime()
+    if not self.lastProposalEndMessageTime or (currentTime - self.lastProposalEndMessageTime) > 5 then
+        self:Print("|cff00ff00[QM]|r Clearing proposal state, returning to normal queue display")
+        self.lastProposalEndMessageTime = currentTime
+    end
+
     -- Remove proposal state and countdown data from all queues
     for queueID, queue in pairs(self.queues) do
         queue.isProposal = false

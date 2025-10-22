@@ -11,7 +11,7 @@
 ## Title-zhCN: |cffff0000Queue|r|cff0080ffMaster|r
 ## Title-zhTW: |cffff0000Queue|r|cff0080ffMaster|r
 ## Notes: Enhanced LFG queue timer with role breakdown, wait estimates, and multi-queue support
-## IconTexture: Interface\Icons\INV_Misc_PocketWatch_01
+## IconTexture: Interface\LFGFrame\LFG-Eye
 ## Notes-frFR: Minuteur de file d'attente RdG amélioré avec répartition des rôles, estimations d'attente et support multi-files
 ## Notes-deDE: Verbesserter LFG-Warteschlangen-Timer mit Rollenaufteilung, Wartezeitschätzungen und Mehrfachwarteschlangen-Unterstützung
 ## Notes-esES: Temporizador de cola BdG mejorado con desglose de roles, estimaciones de espera y soporte de múltiples colas
@@ -23,7 +23,7 @@
 ## Notes-zhCN: 增强的寻求组队计时器，具有角色分解、等待估计和多队列支持
 ## Notes-zhTW: 增強的尋求組隊計時器，具有角色分析、等待估計和多佇列支援
 ## Author: RenZhi@EU-Ravencrest
-## Version: 18.10.25.10
+## Version: 
 ## Category-enUS: Group Finder
 ## Category-deDE: Gruppensuche
 ## Category-esMX: Buscador de Grupos

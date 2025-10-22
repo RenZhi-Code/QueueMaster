@@ -74,39 +74,8 @@ function QueueMaster:MakeBarMovable(bar)
         end
     end
     
-    -- If no saved position, use anchor-relative positioning if anchor exists
-    if useAutoPosition and self.settings and self.settings.useAnchor and self.queueAnchor then
-        -- CRITICAL: Force anchor to show if settings allow it (before positioning bars relative to it)
-        if self.settings.useAnchor and not self.settings.lockFrame then
-            self.queueAnchor:Show()
-            self:Debug("Force showing anchor before bar positioning")
-        end
-        
-        -- Position relative to anchor using SetPoint (simpler and more reliable)
-        -- Get current bar settings
-        local barHeight = (self.settings and self.settings.barHeight) or 36
-        local barSpacing = (self.settings and self.settings.barSpacing) or 8
-        local totalHeight = barHeight + barSpacing
-        
-        -- Count how many visible bars we have (excluding this one)
-        local barCount = 0
-        if self.queueBars then
-            for queueID, existingBar in pairs(self.queueBars) do
-                if existingBar and existingBar:IsVisible() and existingBar ~= bar then
-                    barCount = barCount + 1
-                end
-            end
-        end
-        
-        -- Position below anchor using simple anchor point
-        local yOffset = -10 - (barCount * totalHeight)
-        bar:ClearAllPoints()
-        bar:SetPoint("TOPLEFT", self.queueAnchor, "BOTTOMLEFT", 0, yOffset)
-        self:Debug("Positioned bar relative to anchor: bar #" .. (barCount + 1) .. " at yOffset " .. yOffset)
-        useAutoPosition = false
-    end
-    
-    -- Use smart auto-positioning for new bars without saved positions and no anchor
+    -- CRITICAL FIX: Always use auto-positioning for now to ensure bars are visible
+    -- The anchor positioning was causing bars to be off-screen
     if useAutoPosition then
         self:PositionNewBar(bar)
         self:Debug("Using auto-position for new bar: " .. (bar.queueID or "unknown"))
@@ -357,20 +326,15 @@ function QueueMaster:UpdateQueueBarLayout()
     
     self:Debug("UpdateQueueBarLayout - barCount: " .. barCount .. ", displayMode: " .. displayMode)
     
-    -- CRITICAL FIX: Always handle anchor visibility based on settings
-    -- Don't hide anchor just because there are no bars yet!
-    -- Anchor should be visible if settings allow it (useAnchor=true AND lockFrame=false)
+    -- CRITICAL FIX: Always show anchor when there are bars
+    -- The anchor is needed to position bars, hide it only if explicitly locked
     if self.queueAnchor and settings then
-        if settings.useAnchor and not settings.lockFrame then
+        if barCount > 0 or (settings.useAnchor and not settings.lockFrame) then
             self.queueAnchor:Show()
-            self:Debug("Anchor shown - useAnchor=" .. tostring(settings.useAnchor) .. ", lockFrame=" .. tostring(settings.lockFrame) .. " (barCount=" .. barCount .. ")")
+            self:Debug("Anchor shown (barCount=" .. barCount .. ", locked=" .. tostring(settings.lockFrame) .. ")")
         else
             self.queueAnchor:Hide()
-            if settings.lockFrame then
-                self:Debug("Anchor hidden - bars locked")
-            else
-                self:Debug("Anchor hidden - useAnchor disabled")
-            end
+            self:Debug("Anchor hidden - no bars and not in use")
         end
     end
     
@@ -398,39 +362,37 @@ function QueueMaster:LayoutVertical()
     local barHeight = (settings and settings.barHeight) or 32
     local barWidth = (settings and settings.barWidth) or 300
     local spacing = (settings and settings.barSpacing) or 8
-    local useAnchor = settings and settings.useAnchor and self.queueAnchor
-    
-    -- Performance: Cache database access
-    local db = self.db
-    local savedPositions = db and db.char and db.char.positions
-    
-    local yOffset = 0
+
     local queueBars = self.queueBars
-    
-    -- Performance: Single loop with optimized positioning logic
+
+    -- CRITICAL FIX: Position bars relative to anchor (which is always visible now)
+    -- Bars stack below the anchor
+    local yOffset = -10  -- Start 10 pixels below anchor
+    local barIndex = 0
+
     for queueID, bar in pairs(queueBars) do
         if bar then
-            -- Check for saved position (optimized)
-            local savedPos = savedPositions and savedPositions[queueID]
-            if savedPos and savedPos.x and savedPos.y then
-                -- Restore saved position efficiently
-                bar:ClearAllPoints()
-                bar:SetPoint(savedPos.anchor or "CENTER", UIParent, savedPos.relativeAnchor or "CENTER", savedPos.x, savedPos.y)
-            elseif useAnchor then
-                -- Position relative to anchor - optimized anchoring
-                bar:ClearAllPoints()
-                bar:SetPoint("TOPLEFT", self.queueAnchor, "BOTTOMLEFT", 0, -10 + yOffset)
-                yOffset = yOffset - (barHeight + spacing)
+            barIndex = barIndex + 1
+            bar:ClearAllPoints()
+
+            -- Position relative to anchor
+            if self.queueAnchor then
+                bar:SetPoint("TOPLEFT", self.queueAnchor, "BOTTOMLEFT", 0, yOffset)
+                if self.debugMode then
+                    self:Debug(string.format("Positioned bar %d (%s) relative to anchor at yOffset %d", barIndex, queueID, yOffset))
+                end
             else
-                -- Default positioning - X=100 to match anchor position
-                bar:ClearAllPoints()
+                -- Fallback if anchor doesn't exist (shouldn't happen)
                 bar:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100, -100 + yOffset)
-                yOffset = yOffset - (barHeight + spacing)
+                if self.debugMode then
+                    self:Debug(string.format("WARNING: No anchor! Positioned bar %d (%s) at absolute position", barIndex, queueID))
+                end
             end
-            
-            -- Performance: Single size and visibility call
+
             bar:SetSize(barWidth, barHeight)
             bar:Show()
+
+            yOffset = yOffset - (barHeight + spacing)
         end
     end
 end
@@ -443,38 +405,61 @@ function QueueMaster:LayoutHorizontal()
     local barHeight = (settings and settings.barHeight) or 32
     local spacing = (settings and settings.barSpacing) or 8
     local useAnchor = settings and settings.useAnchor and self.queueAnchor
-    
+
     -- Performance: Cache database access
     local db = self.db
     local savedPositions = db and db.char and db.char.positions
-    
-    local xOffset = 0
+
     local queueBars = self.queueBars
-    
-    -- Performance: Single loop with optimized positioning logic
+
+    -- CRITICAL FIX: Separate bars with saved positions from those without
+    -- This ensures proper horizontal stacking for bars without saved positions
+    local barsWithSavedPos = {}
+    local barsWithoutSavedPos = {}
+
     for queueID, bar in pairs(queueBars) do
         if bar then
-            -- Check for saved position (optimized)
             local savedPos = savedPositions and savedPositions[queueID]
             if savedPos and savedPos.x and savedPos.y then
-                -- Restore saved position efficiently
-                bar:ClearAllPoints()
-                bar:SetPoint(savedPos.anchor or "CENTER", UIParent, savedPos.relativeAnchor or "CENTER", savedPos.x, savedPos.y)
-            elseif useAnchor then
-                -- Position relative to anchor - optimized anchoring
-                bar:ClearAllPoints()
-                bar:SetPoint("TOPLEFT", self.queueAnchor, "TOPRIGHT", 10 + xOffset, 0)
-                xOffset = xOffset + (barWidth + spacing)
+                barsWithSavedPos[#barsWithSavedPos + 1] = {queueID = queueID, bar = bar, savedPos = savedPos}
             else
-                -- Default positioning - X=100 to match anchor position
-                bar:ClearAllPoints()
-                bar:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100 + xOffset, -100)
-                xOffset = xOffset + (barWidth + spacing)
+                barsWithoutSavedPos[#barsWithoutSavedPos + 1] = {queueID = queueID, bar = bar}
             end
-            
-            -- Performance: Single size and visibility call
-            bar:SetSize(barWidth, barHeight)
-            bar:Show()
+        end
+    end
+
+    -- Position bars with saved positions first
+    for i = 1, #barsWithSavedPos do
+        local entry = barsWithSavedPos[i]
+        entry.bar:ClearAllPoints()
+        entry.bar:SetPoint(entry.savedPos.anchor or "CENTER", UIParent, entry.savedPos.relativeAnchor or "CENTER", entry.savedPos.x, entry.savedPos.y)
+        entry.bar:SetSize(barWidth, barHeight)
+        entry.bar:Show()
+        if self.debugMode then
+            self:Debug("Positioned bar " .. entry.queueID .. " at saved position (horizontal)")
+        end
+    end
+
+    -- Position bars without saved positions in a horizontal row
+    local xOffset = 0
+    for i = 1, #barsWithoutSavedPos do
+        local entry = barsWithoutSavedPos[i]
+        entry.bar:ClearAllPoints()
+
+        if useAnchor then
+            -- Position relative to anchor
+            entry.bar:SetPoint("TOPLEFT", self.queueAnchor, "TOPRIGHT", 10 + xOffset, 0)
+        else
+            -- Default positioning - X=100 to match anchor position
+            entry.bar:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 100 + xOffset, -100)
+        end
+
+        xOffset = xOffset + (barWidth + spacing)
+        entry.bar:SetSize(barWidth, barHeight)
+        entry.bar:Show()
+
+        if self.debugMode then
+            self:Debug("Positioned bar " .. entry.queueID .. " at auto position (horizontal index " .. i .. ")")
         end
     end
 end

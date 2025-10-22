@@ -97,33 +97,48 @@ function QueueMaster:ShowQueueTooltip(frame, queueID)
                 )
             end
             
-            -- Show role-specific estimates
+            -- Check for Call to Arms bonuses
+            local tankBonus, healerBonus, dpsBonus, numRewards = false, false, false, 0
+            if GetLFGRoleShortageRewards then
+                local success2, eligible, forTank, forHealer, forDPS, itemCount = pcall(GetLFGRoleShortageRewards, category, activeID)
+                if success2 and eligible then
+                    tankBonus = forTank
+                    healerBonus = forHealer
+                    dpsBonus = forDPS
+                    numRewards = itemCount or 0
+                end
+            end
+
+            -- Show role-specific estimates with Call to Arms indicators
             if tankWait and tankWait > 0 then
                 local tankWaitMin = math.floor(tankWait / 60)
+                local bonusText = tankBonus and " |cFFFFD700[Call to Arms]|r" or ""
                 GameTooltip:AddDoubleLine(
-                    "  Tank Wait:",
+                    "  Tank Wait:" .. bonusText,
                     string.format("%d min", tankWaitMin),
-                    0.7, 0.7, 0.7,
+                    tankBonus and 1 or 0.7, tankBonus and 0.84 or 0.7, tankBonus and 0 or 0.7,
                     0.7, 0.7, 0.7
                 )
             end
-            
+
             if healerWait and healerWait > 0 then
                 local healerWaitMin = math.floor(healerWait / 60)
+                local bonusText = healerBonus and " |cFFFFD700[Call to Arms]|r" or ""
                 GameTooltip:AddDoubleLine(
-                    "  Healer Wait:",
+                    "  Healer Wait:" .. bonusText,
                     string.format("%d min", healerWaitMin),
-                    0.7, 0.7, 0.7,
+                    healerBonus and 1 or 0.7, healerBonus and 0.84 or 0.7, healerBonus and 0 or 0.7,
                     0.7, 0.7, 0.7
                 )
             end
-            
+
             if dpsWait and dpsWait > 0 then
                 local dpsWaitMin = math.floor(dpsWait / 60)
+                local bonusText = dpsBonus and " |cFFFFD700[Call to Arms]|r" or ""
                 GameTooltip:AddDoubleLine(
-                    "  DPS Wait:",
+                    "  DPS Wait:" .. bonusText,
                     string.format("%d min", dpsWaitMin),
-                    0.7, 0.7, 0.7,
+                    dpsBonus and 1 or 0.7, dpsBonus and 0.84 or 0.7, dpsBonus and 0 or 0.7,
                     0.7, 0.7, 0.7
                 )
             end

@@ -34,7 +34,7 @@ local function BuildOptionsTable()
                 order = 0.1
             },
             version = {
-                name = "|cFFFFD700Version:|r |cff00ff00v18.10.25.10",
+                name = "|cFFFFD700Version:|r |cff00ff00v22.10.25.10",
                 type = "description",
                 order = 0.2
             },

@@ -44,8 +44,19 @@ local function SafeGetLFGQueueStats(category, activeID)
     -- Use GetLFGQueueStats directly (this is the standard Blizzard API)
     if hasLegacyAPI then
         local success, hasData, leaderNeeds, tankNeeds, healerNeeds, dpsNeeds, totalTanks, totalHealers, totalDPS, instanceType, instanceSubType, instanceName, averageWait, tankWait, healerWait, dpsWait, myWait, queuedTime, returnedActiveID = pcall(GetLFGQueueStats, category, activeID)
-        
+
         if success and hasData then
+            -- CRITICAL FIX: GetLFGQueueStats sometimes returns wrong instance name
+            -- Use GetLFGDungeonInfo with the activeID to get the correct name
+            local correctInstanceName = instanceName
+            if activeID and (GetLFGDungeonInfo or GetRFDungeonInfo) then
+                local dungeonAPI = GetLFGDungeonInfo or GetRFDungeonInfo
+                local success2, name = pcall(dungeonAPI, activeID)
+                if success2 and name and name ~= "" then
+                    correctInstanceName = name
+                end
+            end
+
             -- GetLFGQueueStats returned valid data
             result = {
                 hasData = hasData,
@@ -55,7 +66,7 @@ local function SafeGetLFGQueueStats(category, activeID)
                 totalTanks = totalTanks or 0,
                 totalHealers = totalHealers or 0,
                 totalDPS = totalDPS or 0,
-                instanceName = instanceName or "Unknown",
+                instanceName = correctInstanceName or "Unknown",
                 averageWait = averageWait or 0,
                 queuedTime = queuedTime or 0,
                 instanceType = instanceType or 1,

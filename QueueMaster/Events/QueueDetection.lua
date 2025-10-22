@@ -144,44 +144,122 @@ end
 
 function QueueMaster:ProcessStandardCategory(category, foundActiveQueues, queueState)
     if self.debugMode then
-        self:Debug("Found active queue in category " .. category)
+        self:Debug("ProcessStandardCategory called for category " .. category .. " with queueState: " .. tostring(queueState))
     end
-    
-    -- Try to get queue stats for this category
-    local queueInfo = self.SafeGetLFGQueueStats(category)
 
-    -- REMOVED: Fallback queue creation was causing duplicate "Left queue/Joined" messages
-    -- The grace period system (10-15 seconds) and the double-check in CleanupInactiveQueues
-    -- are sufficient to handle API delays without creating confusing fallback queues
-    -- If API doesn't return data, the queue simply won't be detected until it does
+    -- CRITICAL FIX: Try to enumerate all queued dungeons in this category
+    -- GetLFGQueuedList returns a table with activeIDs as KEYS (not values!)
+    local activeIDList = {}
 
-    if queueInfo and queueInfo.hasData then
-        -- Create stable queue ID using category and active ID to prevent duplicates
-        local uniqueQueueID = string.format("QUEUE_%d_%d", category, queueInfo.activeID or 0)
-        foundActiveQueues[uniqueQueueID] = true
-        
-        -- Check if we already have a queue for this instance (avoid duplicates)
-        local existingQueueID = self:FindExistingQueueByInstance(category, queueInfo.instanceName)
-        
-        -- Use existing queue ID if found, otherwise use the new stable format
-        if existingQueueID then
-            self:MigrateQueueID(existingQueueID, uniqueQueueID)
+    if GetLFGQueuedList then
+        local queuedTable = GetLFGQueuedList(category)
+        if self.debugMode then
+            self:Debug("GetLFGQueuedList returned for category " .. category)
         end
-        
-        -- Create or update queue
-        if not self.queues[uniqueQueueID] then
-            -- Log queue join to chat (helps with debugging display issues)
-            print("|cff00ff00[QM]|r Joined: " .. (queueInfo.instanceName or "Unknown Queue"))
 
-            -- Play subtle audio cue for queue join (if sound enabled)
-            if self.settings and self.settings.soundEnabled then
-                PlaySound(SOUNDKIT.ALARM_CLOCK_WARNING_2)  -- Subtle notification sound
+        -- The API returns a table with activeIDs as keys, we need to convert to array
+        if queuedTable and type(queuedTable) == "table" then
+            for activeID, _ in pairs(queuedTable) do
+                activeIDList[#activeIDList + 1] = activeID
+                if self.debugMode then
+                    self:Debug("Found activeID in queue: " .. tostring(activeID))
+                end
             end
-
-            self:CreateNewQueue(uniqueQueueID, category, queueInfo, queueState)
-        else
-            self:UpdateExistingQueue(uniqueQueueID, queueInfo, queueState)
         end
+    end
+
+    -- FALLBACK: If GetLFGQueuedList doesn't work or returns empty, try without activeID
+    -- This will return data for at least ONE queue in the category
+    if #activeIDList == 0 then
+        if self.debugMode then
+            self:Debug("GetLFGQueuedList returned no activeIDs, trying GetLFGQueueStats without activeID")
+        end
+        activeIDList = {nil}  -- Will call GetLFGQueueStats(category) without activeID
+    else
+        if self.debugMode then
+            self:Debug("Found " .. #activeIDList .. " activeIDs in category " .. category)
+        end
+    end
+
+    -- Process each queued instance in this category
+    local processedCount = 0
+    for i, activeID in ipairs(activeIDList) do
+        if self.debugMode then
+            self:Debug("Processing queue " .. i .. " in category " .. category .. " with activeID: " .. tostring(activeID))
+        end
+
+        -- CRITICAL FIX: GetLFGQueueStats ignores the activeID parameter for LFR!
+        -- Call it without activeID to get queue stats, then override with correct values
+        local queueInfo = self.SafeGetLFGQueueStats(category, nil)
+
+        -- Override activeID and get correct instance name
+        if queueInfo and queueInfo.hasData and activeID then
+            queueInfo.activeID = activeID
+
+            -- Get correct instance name from GetLFGDungeonInfo
+            if GetLFGDungeonInfo then
+                local success, name = pcall(GetLFGDungeonInfo, activeID)
+                if success and name and name ~= "" then
+                    queueInfo.instanceName = name
+                    if self.debugMode then
+                        self:Debug("Got instance name from GetLFGDungeonInfo: " .. name)
+                    end
+                end
+            elseif GetRFDungeonInfo then
+                local success, name = pcall(GetRFDungeonInfo, activeID)
+                if success and name and name ~= "" then
+                    queueInfo.instanceName = name
+                    if self.debugMode then
+                        self:Debug("Got instance name from GetRFDungeonInfo: " .. name)
+                    end
+                end
+            end
+        end
+
+        if self.debugMode then
+            self:Debug("GetLFGQueueStats result - hasData: " .. tostring(queueInfo and queueInfo.hasData))
+            if queueInfo and queueInfo.hasData then
+                self:Debug("Queue info: " .. (queueInfo.instanceName or "no name") .. " activeID: " .. tostring(queueInfo.activeID))
+            end
+        end
+
+        if queueInfo and queueInfo.hasData then
+            processedCount = processedCount + 1
+
+            -- Create stable queue ID using category and active ID to prevent duplicates
+            local uniqueQueueID = string.format("QUEUE_%d_%d", category, queueInfo.activeID or activeID or 0)
+            foundActiveQueues[uniqueQueueID] = true
+
+            -- REMOVED: FindExistingQueueByInstance was causing different wings to merge
+            -- The uniqueQueueID already includes the activeID, so duplicates are prevented
+            -- local existingQueueID = self:FindExistingQueueByInstance(category, queueInfo.instanceName)
+            -- if existingQueueID then
+            --     self:MigrateQueueID(existingQueueID, uniqueQueueID)
+            -- end
+
+            -- Create or update queue
+            if not self.queues[uniqueQueueID] then
+                -- Log queue join to chat (helps with debugging display issues)
+                print("|cff00ff00[QM]|r Joined: " .. (queueInfo.instanceName or "Unknown Queue"))
+
+                -- Play subtle audio cue for queue join (if sound enabled)
+                if self.settings and self.settings.soundEnabled then
+                    PlaySound(SOUNDKIT.ALARM_CLOCK_WARNING_2)  -- Subtle notification sound
+                end
+
+                self:CreateNewQueue(uniqueQueueID, category, queueInfo, queueState)
+            else
+                self:UpdateExistingQueue(uniqueQueueID, queueInfo, queueState)
+            end
+        else
+            if self.debugMode then
+                self:Debug("No queue data for category " .. category .. " activeID " .. tostring(activeID))
+            end
+        end
+    end
+
+    if self.debugMode then
+        self:Debug("ProcessStandardCategory complete - processed " .. processedCount .. " queues in category " .. category)
     end
 end
 
@@ -237,10 +315,18 @@ function QueueMaster:CheckPvPQueues(foundActiveQueues)
     end
 end
 
-function QueueMaster:FindExistingQueueByInstance(category, instanceName)
+function QueueMaster:FindExistingQueueByInstance(category, instanceName, activeID)
+    -- CRITICAL FIX: Match by activeID if available, not just instance name
+    -- Multiple LFR wings can have similar/same names but different activeIDs
     for queueID, queue in pairs(self.queues) do
-        if queue.category == category and queue.instanceName == instanceName then
-            return queueID
+        if queue.category == category then
+            -- If we have activeIDs, match by activeID (most accurate)
+            if activeID and queue.activeID and queue.activeID == activeID then
+                return queueID
+            -- Otherwise fall back to instance name matching
+            elseif not activeID and queue.instanceName == instanceName then
+                return queueID
+            end
         end
     end
     return nil
